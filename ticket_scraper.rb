@@ -1,18 +1,51 @@
+# Require gems for sending get request:HTTParty, parsing:Nokogiri, debugging:pry, write to csv:csv
 require "HTTParty"
 require "Nokogiri"
 require "Pry"
 require "csv"
 
-puts "How many pages of WeGotTickets would you like to scrape?"
-number_of_pages = gets.chomp.to_i
+# Methods for functionality: amount of pages to scrape(for until loop), page parsing, get content from parsed page 
+def pages_to_scrape 
+	puts "How many pages of WeGotTickets would you like to scrape?"
+	gets.chomp.to_i
+end
 
-events= []
+def page_parser(page)
+	Nokogiri::HTML(page)
+end
+
+def get_content(parsed_page)
+	parsed_page.css('.content.block-group.chatterbox-margin')
+end
+
+def csv_generator(events)
+	column_names = events.first.keys
+	
+	CSV.generate do |csv|
+  	csv << column_names
+  	events.each do |event|
+    	csv << event.values
+  	end
+	end
+end
+
+def write_to_csv_file(events_csv)
+	File.write('ticket_scraper.csv', events_csv)
+end
+
+# Driver code
+# set variables for amount of pages to scrape
+number_of_pages = pages_to_scrape
 x = 1
 
+# empty events array to store the events in
+events = []
+
+# Until loop to loop through pages and save each event to events. Once the loop has been fulfilled write to a csv file
 until x > number_of_pages
 	page = HTTParty.get("http://www.wegottickets.com/searchresults/page/#{x}/all#paginate")
-	parsed_page = Nokogiri::HTML(page)
-	content = parsed_page.css('.content.block-group.chatterbox-margin')
+	parsed_page = page_parser(page)
+	content = get_content(parsed_page)
 
 	y = 0
 	10.times do
@@ -30,13 +63,7 @@ until x > number_of_pages
 	x+=1
 end
 
-column_names = events.first.keys
-events_csv=CSV.generate do |csv|
-  csv << column_names
-  events.each do |event|
-    csv << event.values
-  end
-end
+events_csv = csv_generator(events)
+write_to_csv_file(events_csv)
 
-File.write('ticket_scraper.csv', events_csv)
 puts "Scraping complete - #{events.length} events written to csv."
